@@ -1,0 +1,13 @@
+{
+  "name": "santi/shared",
+  "description": "Shared Kernel for Santi Solutions",
+  "type": "library",
+  "autoload": {
+    "psr-4": {
+      "Santi\\Shared\\": "src/"
+    }
+  },
+  "require": {
+    "php": "^8.2"
+  }
+}

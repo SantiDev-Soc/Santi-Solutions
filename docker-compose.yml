@@ -1,0 +1,232 @@
+services:
+  # --- PERSISTENCIA Y EVENTOS ---
+  db:
+    image: postgres:16-alpine
+    container_name: santi-db
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=santi_main
+    volumes:
+      - ./solutions-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - santi-network
+
+  redis:
+    image: redis:alpine
+    container_name: santi-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+    networks:
+      - santi-network
+
+  # --- FRONTEND (VUE 3) ---
+  frontend:
+    image: node:20-alpine
+    container_name: santi-frontend
+    working_dir: /app
+    ports:
+      - '3000:3000'
+    volumes:
+      - './frontend:/app'
+    command: sh -c "npm install && npm run dev -- --host"
+    networks:
+      - santi-network
+
+# --- SERVICIO 1: CORE GATEWAY ---
+  gateway-service:
+    build: { context: ./services/core-gateway, dockerfile: ../../Dockerfile }
+    container_name: santi-gateway
+    ports: ['8001:8000']
+    #tty: true                               # <--- AÑADIDO
+    #command: tail -f /dev/null              # <--- AÑADIDO
+    environment: &gateway-env # Usamos un alias para no repetir variables
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=core_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis # <--- IMPORTANTE
+    volumes: ['./services/core-gateway:/app','./services/shared:/app/shared']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  gateway-worker:
+    build: { context: ./services/core-gateway, dockerfile: ../../Dockerfile }
+    container_name: santi-gateway-worker
+    command: php artisan queue:work # <--- ESTE ES EL WORKER
+    environment: *gateway-env
+    volumes: ['./services/core-gateway:/app']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  # --- SERVICIO 2: INTERIOR REMODELING ---
+  interior-service:
+    build: { context: ./services/interior-remodeling, dockerfile: ../../Dockerfile }
+    container_name: santi-interior
+    ports: ['8002:8000']
+    #tty: true                               # <--- AÑADIDO
+    #command: tail -f /dev/null              # <--- AÑADIDO
+    environment: &interior-env
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=interior_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    volumes: ['./services/interior-remodeling:/app','./services/shared:/app/shared']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  interior-worker:
+    build: { context: ./services/interior-remodeling, dockerfile: ../../Dockerfile }
+    container_name: santi-interior-worker
+    command: php artisan queue:work
+    environment: *interior-env
+    volumes: ['./services/interior-remodeling:/app']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  # --- SERVICIO 3: EXTERIOR & STRUCTURAL ---
+  exterior-service:
+    build: { context: ./services/exterior-structural, dockerfile: ../../Dockerfile }
+    container_name: santi-exterior
+    ports: ['8003:8000']
+    #tty: true                               # <--- AÑADIDO
+    #command: tail -f /dev/null              # <--- AÑADIDO
+    environment: &exterior-env
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=exterior_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    volumes: ['./services/exterior-structural:/app','./services/shared:/app/shared']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  exterior-worker:
+    build: { context: ./services/exterior-structural, dockerfile: ../../Dockerfile }
+    container_name: santi-exterior-worker
+    command: php artisan queue:work
+    environment: *exterior-env
+    volumes: ['./services/exterior-structural:/app']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  # --- SERVICIO 4: OUTDOOR LIVING ---
+  outdoor-service:
+    build: { context: ./services/outdoor-living, dockerfile: ../../Dockerfile }
+    container_name: santi-outdoor
+    ports: ['8004:8000']
+    #tty: true                               # <--- AÑADIDO
+    #command: tail -f /dev/null              # <--- AÑADIDO
+    environment: &outdoor-env
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=outdoor_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    volumes: ['./services/outdoor-living:/app', './services/shared:/app/shared']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  outdoor-worker:
+    build: { context: ./services/outdoor-living, dockerfile: ../../Dockerfile }
+    container_name: santi-outdoor-worker
+    command: php artisan queue:work
+    environment: *outdoor-env
+    volumes: ['./services/outdoor-living:/app']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  # --- SERVICIO 5: ENERGY EFFICIENCY ---
+  energy-service:
+    build: { context: ./services/energy-efficiency, dockerfile: ../../Dockerfile }
+    container_name: santi-energy
+    ports: ['8005:8000']
+    #tty: true                               # <--- AÑADIDO
+    #command: tail -f /dev/null              # <--- AÑADIDO
+    environment: &energy-env
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=energy_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    volumes: ['./services/energy-efficiency:/app', './services/shared:/app/shared']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  energy-worker:
+    build: { context: ./services/energy-efficiency, dockerfile: ../../Dockerfile }
+    container_name: santi-energy-worker
+    command: php artisan queue:work
+    environment: *energy-env
+    volumes: ['./services/energy-efficiency:/app']
+    depends_on: [db, redis]
+    networks: [santi-network]
+
+  audit-service:
+    build: { context: ./services/audit-service, dockerfile: ../../Dockerfile }
+    container_name: santi-audit
+    #tty: true                               # <--- AÑADIDO
+    #command: tail -f /dev/null              # <--- AÑADIDO
+    environment: &audit-env
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=audit_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    volumes: [ './services/audit-service:/app', './services/shared:/app/shared']
+    networks: [ santi-network ]
+
+  audit-worker:
+      build: { context: ./services/audit-service, dockerfile: ../../Dockerfile }
+      container_name: santi-audit-worker
+      #tty: true                               # <--- AÑADIDO
+      #command: tail -f /dev/null
+      command: php artisan queue:work
+      environment: *audit-env
+      volumes: [ './services/audit-service:/app' ]
+      depends_on: [db, redis]
+      networks: [ santi-network ]
+
+
+  # GESTIÓN DB
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: santi-pgadmin
+    ports: ['8082:80']
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      db: { condition: service_healthy }
+    networks:
+      - santi-network
+
+networks:
+  santi-network:
+    driver: bridge

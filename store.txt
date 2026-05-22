@@ -1,0 +1,90 @@
+Esta es la parte más importante para entender tu arquitectura. Has pasado de una
+web "normal" (donde todo pasa en el mismo sitio) a un Sistema Distribuido.
+
+Aquí tienes el desglose técnico de lo que acabamos de hacer "bajo el capó":
+
+1. El Emisor: Core-Gateway (El Productor)
+
+Cuando ejecutaste ProcessImpactWindowLead::dispatch($data), Laravel no guardó
+nada en la base de datos de inmediato. Lo que hizo fue:
+
+1.  Serialización: Tomó tu clase de PHP y los datos ($data) y los convirtió en
+    un JSON.
+      - ¿Por qué? Porque Redis no entiende PHP, solo entiende texto (strings).
+2.  Envío al Buzón: Laravel se conectó a Redis y ejecutó un comando llamado
+    RPUSH. Puso ese JSON al final de una lista llamada queues:default.
+
+En este punto, el Gateway ya terminó su trabajo. No sabe si el mensaje se leerá
+o no; él simplemente lo dejó en el buzón.
+
+2. El Mensajero: Redis (El Message Broker)
+
+Redis actúa como un amortiguador (buffer).
+
+  - Si de repente te entran 1.000 leads en un segundo, Redis los guarda todos en
+    fila (queues:default).
+  - Esto evita que el servidor de base de datos se colapse, porque los mensajes
+    están "esperando" en la memoria RAM de Redis.
+
+3. El Receptor: Exterior-Worker (El Consumidor)
+
+Este es el contenedor que tenías en logs. Su único trabajo en la vida es
+ejecutar este bucle infinito:
+
+1.  Polling (Vigilancia): Constantemente le pregunta a Redis: "¿Hay algo nuevo
+    en la lista queues:default?".
+2.  Extracción: Cuando aparece un mensaje, lo saca de la lista (para que ningún
+    otro worker lo repita).
+3.  Reconstrucción (Deserialización): Lee el JSON y dice: "Ah, el Gateway me
+    dice que ejecute la clase App\Jobs\ProcessImpactWindowLead con estos datos".
+4.  Ejecución: Aquí es donde ocurre la magia. El worker busca en su propio
+    código esa clase y ejecuta el método handle().
+
+4. La Base de Datos: ¿Dónde entra en juego?
+
+Aquí es donde entra tu Arquitectura Hexagonal. El Worker vive dentro del
+servicio exterior-structural. Cuando el método handle() se ejecuta:
+
+1.  Contexto Local: El worker usa la conexión de base de datos de su propio
+    servicio (exterior_db).
+2.  Persistencia: Dentro del handle(), tú escribirías algo como:
+    public function handle() {
+        // El worker usa el modelo del Servicio Exterior
+        ImpactProject::create([
+            'client_name' => $this->leadData['name'],
+            'zip_code' => $this->leadData['zip'],
+            'status' => 'pending_estimate'
+        ]);
+    }
+3.  Resultado: El Lead se originó en el gateway_db, pero gracias al evento,
+    ahora tienes un registro de proyecto en la exterior_db sin que las dos bases
+    de datos se hayan tocado nunca directamente.
+
+¿Qué resolvimos para que funcionara? (Tus dudas de ayer)
+
+1.  El Prefijo de Redis: Descubrimos que si el Gateway escribe en un buzón
+    llamado laravel_queues:default y el Worker busca en queues:default, nunca se
+    verán. Al vaciar el prefix, logramos que ambos miren exactamente la misma
+    dirección.
+2.  La Clase "Espejo": Laravel necesita que la clase exista en ambos sitios. El
+    emisor la necesita para saber qué enviar, y el receptor para saber qué
+    ejecutar.
+3.  Namespaces: Si el emisor dice que la clase es App\Jobs\Lead pero el receptor
+    la tiene en App\Services\Lead, el receptor dirá "No sé de qué me hablas" y
+    fallará. Por eso los mantuvimos idénticos.
+
+Resumen del flujo final:
+
+1.  Frontend (Vue): "¡Hola Gateway! Hay un cliente nuevo."
+2.  Gateway: "Recibido. Voy a avisar a todos. ¡Evento enviado a Redis!"
+3.  Worker Exterior: (Viendo Redis) "¡Un mensaje! Es para mí. Voy a crear un
+    presupuesto de ventanas en MI base de datos."
+4.  Worker Outdoor: (Viendo Redis) "¡El mismo mensaje! Yo también lo quiero. Voy
+    a agendar una visita al jardín en MI base de datos."
+
+Esto es la verdadera escalabilidad. Si el servicio de ventanas es lento, no
+importa, el Gateway sigue libre para atender a más clientes.
+
+¿Te queda más claro ahora el papel del Worker y cómo se conecta a la DB? Si es
+así, podemos empezar a crear la lógica real para guardar ese Lead en el Gateway
+mediante Filament.
