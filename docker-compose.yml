@@ -29,14 +29,15 @@ services:
 
   # --- FRONTEND (VUE 3) ---
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: santi-frontend
-    working_dir: /app
     ports:
       - '3000:3000'
     volumes:
       - './frontend:/app'
-    command: sh -c "npm install && npm run dev -- --host"
+      - '/app/node_modules' # Truco: evita que el node_modules de Windows pise al de Linux
     networks:
       - santi-network
 
@@ -45,8 +46,8 @@ services:
     build: { context: ./services/core-gateway, dockerfile: ../../Dockerfile }
     container_name: santi-gateway
     ports: ['8001:8000']
-    #tty: true                               # <--- AÑADIDO
-    #command: tail -f /dev/null              # <--- AÑADIDO
+    #tty: true
+    #command: tail -f /dev/null
     environment: &gateway-env # Usamos un alias para no repetir variables
       - DB_CONNECTION=pgsql
       - DB_HOST=db
@@ -63,7 +64,7 @@ services:
   gateway-worker:
     build: { context: ./services/core-gateway, dockerfile: ../../Dockerfile }
     container_name: santi-gateway-worker
-    command: php artisan queue:work # <--- ESTE ES EL WORKER
+    command: php artisan santi:listen # <--- ESTE ES EL WORKER
     environment: *gateway-env
     volumes: ['./services/core-gateway:/app']
     depends_on: [db, redis]
@@ -92,7 +93,7 @@ services:
   interior-worker:
     build: { context: ./services/interior-remodeling, dockerfile: ../../Dockerfile }
     container_name: santi-interior-worker
-    command: php artisan queue:work
+    command: php artisan santi:listen
     environment: *interior-env
     volumes: ['./services/interior-remodeling:/app']
     depends_on: [db, redis]
@@ -121,7 +122,7 @@ services:
   exterior-worker:
     build: { context: ./services/exterior-structural, dockerfile: ../../Dockerfile }
     container_name: santi-exterior-worker
-    command: php artisan queue:work
+    command: php artisan santi:listen
     environment: *exterior-env
     volumes: ['./services/exterior-structural:/app']
     depends_on: [db, redis]
@@ -150,7 +151,7 @@ services:
   outdoor-worker:
     build: { context: ./services/outdoor-living, dockerfile: ../../Dockerfile }
     container_name: santi-outdoor-worker
-    command: php artisan queue:work
+    command: php artisan santi:listen
     environment: *outdoor-env
     volumes: ['./services/outdoor-living:/app']
     depends_on: [db, redis]
@@ -179,7 +180,7 @@ services:
   energy-worker:
     build: { context: ./services/energy-efficiency, dockerfile: ../../Dockerfile }
     container_name: santi-energy-worker
-    command: php artisan queue:work
+    command: php artisan santi:listen
     environment: *energy-env
     volumes: ['./services/energy-efficiency:/app']
     depends_on: [db, redis]
@@ -207,7 +208,7 @@ services:
       container_name: santi-audit-worker
       #tty: true                               # <--- AÑADIDO
       #command: tail -f /dev/null
-      command: php artisan queue:work
+      command: php artisan santi:audit-listen
       environment: *audit-env
       volumes: [ './services/audit-service:/app' ]
       depends_on: [db, redis]

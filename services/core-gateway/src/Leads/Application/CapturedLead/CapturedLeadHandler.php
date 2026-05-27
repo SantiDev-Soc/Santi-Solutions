@@ -3,15 +3,16 @@ declare(strict_types=1);
 
 namespace Santi\Leads\Application\CapturedLead;
 
+use JsonException;
 use Santi\Leads\Domain\Leads;
 use Santi\Leads\Domain\Repository\LeadRepositoryInterface;
-use Santi\Leads\Infrastructure\LaravelEventBus;
+use Santi\Shared\Domain\Bus\Event\EventBus;
 
 final readonly class CapturedLeadHandler
 {
     public function __construct(
         private LeadRepositoryInterface $leadRepository,
-        private LaravelEventBus $eventBus,
+        private EventBus $eventBus,
     )
     {
     }
@@ -25,7 +26,6 @@ final readonly class CapturedLeadHandler
         );
 
         $this->leadRepository->save($lead);
-
         $this->eventBus->publish(...$lead->pullDomainEvents());
     }
 }

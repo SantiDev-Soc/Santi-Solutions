@@ -3,11 +3,9 @@ declare(strict_types=1);
 
 namespace Santi\Leads\Domain\Events;
 
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Santi\Shared\Domain\Bus\Event\DomainEvent;
 
-
-class LeadCapturedDomainEvent extends DomainEvent implements ShouldQueue
+class LeadCapturedDomainEvent extends DomainEvent
 {
     public function __construct(
         string $aggregateId,
@@ -17,28 +15,28 @@ class LeadCapturedDomainEvent extends DomainEvent implements ShouldQueue
         ?string $occurredOn = null
     )
     {
-        parent::__construct($aggregateId, $eventId, $occurredOn);
+        parent::__construct($aggregateId, $this->toPrimitives(), $occurredOn);
     }
 
     public static function create(
         string $aggregateId,
         string $name,
         string $email
-    ):self
+    ): self
     {
         return new self($aggregateId, $name, $email);
-    }
-
-    public function getName(): string
-    {
-        return 'lead.captured';
     }
 
     public function toPrimitives(): array
     {
         return [
-            'name'  => $this->name,
+            'name' => $this->name,
             'email' => $this->email,
         ];
+    }
+
+    public static function eventName(): string
+    {
+        return 'lead.captured';
     }
 }

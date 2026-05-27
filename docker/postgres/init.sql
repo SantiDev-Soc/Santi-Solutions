@@ -4,3 +4,4 @@ CREATE DATABASE exterior_db;
 CREATE DATABASE outdoor_db;
 CREATE DATABASE energy_db;
 CREATE DATABASE audit_db;
+CREATE DATABASE portfolio_db;

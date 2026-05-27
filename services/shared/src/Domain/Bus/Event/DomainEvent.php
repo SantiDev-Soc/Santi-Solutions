@@ -3,37 +3,28 @@ declare(strict_types=1);
 
 namespace Santi\Shared\Domain\Bus\Event;
 
-use DateTimeImmutable;
-use Symfony\Component\Uid\Uuid;
-
+use JsonException;
 abstract class DomainEvent implements DomainEventInterface
 {
-    private string $eventId;
-    private string $occurredOn;
-
     public function __construct(
-        private readonly string $aggregateId,
-        ?string $eventId = null,
-        ?string $occurredOn = null
+        protected string $aggregateId,
+        protected array $payload,
+        protected ?string $occurredOn = null
     )
     {
-        $this->eventId = $eventId ?: (string)Uuid::v4();
-        $this->occurredOn = $occurredOn ?: new DateTimeImmutable()->format('Y-m-d H:i:s');
+        $this->occurredOn = $occurredOn ?: now()->toDateTimeString();
     }
 
-    public function getAggregateId(): string
+    abstract public static function eventName(): string;
+
+    /** @throws JsonException */
+    public function fullMessage(): string
     {
-        return $this->aggregateId;
+        return json_encode([
+            'event_name' => static::eventName(),
+            'aggregate_id' => $this->aggregateId,
+            'payload' => $this->payload,
+            'occurred_on' => $this->occurredOn
+        ], JSON_THROW_ON_ERROR);
     }
-
-    public function getOccurredOn(): string
-    {
-        return $this->occurredOn;
-    }
-
-    public function getEventId(): string
-    {
-        return $this->eventId;
-    }
-
 }

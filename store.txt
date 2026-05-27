@@ -1,90 +1,89 @@
-Esta es la parte más importante para entender tu arquitectura. Has pasado de una
-web "normal" (donde todo pasa en el mismo sitio) a un Sistema Distribuido.
+Es fundamental entender esto, porque el Pub/Sub es el sistema de comunicación que usan las arquitecturas de microservicios más potentes del mundo (como las de Netflix o Uber).
 
-Aquí tienes el desglose técnico de lo que acabamos de hacer "bajo el capó":
+Aquí tienes el resumen técnico "a modo de estudiante" de lo que hemos construido para Santi Solutions:
+1. ¿Qué es Redis Pub/Sub? (El concepto)
 
-1. El Emisor: Core-Gateway (El Productor)
+Imagina que Redis es una estación de radio.
 
-Cuando ejecutaste ProcessImpactWindowLead::dispatch($data), Laravel no guardó
-nada en la base de datos de inmediato. Lo que hizo fue:
+    PUB (Publish / Publicar): Es el locutor (Gateway). Él habla por un micrófono y lanza su mensaje al aire en una frecuencia específica (el "Canal"). Al locutor no le importa si hay alguien escuchando o no; él simplemente grita el mensaje.
 
-1.  Serialización: Tomó tu clase de PHP y los datos ($data) y los convirtió en
-    un JSON.
-      - ¿Por qué? Porque Redis no entiende PHP, solo entiende texto (strings).
-2.  Envío al Buzón: Laravel se conectó a Redis y ejecutó un comando llamado
-    RPUSH. Puso ese JSON al final de una lista llamada queues:default.
+    SUB (Subscribe / Suscribir): Son los oyentes (Auditor, Ventanas, Jardinería). Ellos tienen la radio encendida y sintonizada en esa misma frecuencia. En cuanto oyen algo, lo anotan en su libreta.
 
-En este punto, el Gateway ya terminó su trabajo. No sabe si el mensaje se leerá
-o no; él simplemente lo dejó en el buzón.
+Diferencia con las Colas (Queues) normales:
 
-2. El Mensajero: Redis (El Message Broker)
+    En una Cola, un mensaje va a un solo trabajador. Si el Auditor lo lee, el de Ventanas ya no lo ve.
 
-Redis actúa como un amortiguador (buffer).
+    En Pub/Sub, un mensaje puede ser leído por infinitos trabajadores a la vez. Esto se llama "Fan-out" (un grito, muchos ecos).
 
-  - Si de repente te entran 1.000 leads en un segundo, Redis los guarda todos en
-    fila (queues:default).
-  - Esto evita que el servidor de base de datos se colapse, porque los mensajes
-    están "esperando" en la memoria RAM de Redis.
+2. Cómo implementamos el "Grito" (El Emisor)
 
-3. El Receptor: Exterior-Worker (El Consumidor)
+Seguimos el flujo DDD + Hexagonal para que el negocio sea puro:
 
-Este es el contenedor que tenías en logs. Su único trabajo en la vida es
-ejecutar este bucle infinito:
+    Dominio (Leads.php): El Lead "siente" que algo ha pasado y lo anota en su lista de eventos (recordDomainEvent).
 
-1.  Polling (Vigilancia): Constantemente le pregunta a Redis: "¿Hay algo nuevo
-    en la lista queues:default?".
-2.  Extracción: Cuando aparece un mensaje, lo saca de la lista (para que ningún
-    otro worker lo repita).
-3.  Reconstrucción (Deserialización): Lee el JSON y dice: "Ah, el Gateway me
-    dice que ejecute la clase App\Jobs\ProcessImpactWindowLead con estos datos".
-4.  Ejecución: Aquí es donde ocurre la magia. El worker busca en su propio
-    código esa clase y ejecuta el método handle().
+    Aplicación (CapturedLeadHandler.php): El Handler guarda el Lead en la base de datos de PostgreSQL y luego le entrega esos eventos al "Cartero" (la Interface EventBus).
 
-4. La Base de Datos: ¿Dónde entra en juego?
+    Infraestructura (RedisEventBus.php): Aquí es donde ocurre la magia técnica.
 
-Aquí es donde entra tu Arquitectura Hexagonal. El Worker vive dentro del
-servicio exterior-structural. Cuando el método handle() se ejecuta:
+        Toma la clase de PHP y la convierte en un JSON puro.
 
-1.  Contexto Local: El worker usa la conexión de base de datos de su propio
-    servicio (exterior_db).
-2.  Persistencia: Dentro del handle(), tú escribirías algo como:
-    public function handle() {
-        // El worker usa el modelo del Servicio Exterior
-        ImpactProject::create([
-            'client_name' => $this->leadData['name'],
-            'zip_code' => $this->leadData['zip'],
-            'status' => 'pending_estimate'
-        ]);
-    }
-3.  Resultado: El Lead se originó en el gateway_db, pero gracias al evento,
-    ahora tienes un registro de proyecto en la exterior_db sin que las dos bases
-    de datos se hayan tocado nunca directamente.
+        Ejecuta el comando: Redis::publish('santi_solutions_events', $json).
 
-¿Qué resolvimos para que funcionara? (Tus dudas de ayer)
+        Resultado: El mensaje ya está volando por la red de Docker.
 
-1.  El Prefijo de Redis: Descubrimos que si el Gateway escribe en un buzón
-    llamado laravel_queues:default y el Worker busca en queues:default, nunca se
-    verán. Al vaciar el prefix, logramos que ambos miren exactamente la misma
-    dirección.
-2.  La Clase "Espejo": Laravel necesita que la clase exista en ambos sitios. El
-    emisor la necesita para saber qué enviar, y el receptor para saber qué
-    ejecutar.
-3.  Namespaces: Si el emisor dice que la clase es App\Jobs\Lead pero el receptor
-    la tiene en App\Services\Lead, el receptor dirá "No sé de qué me hablas" y
-    fallará. Por eso los mantuvimos idénticos.
+3. Cómo nos suscribimos (El Receptor)
 
-Resumen del flujo final:
+Para que el Audit Service pueda escuchar, hemos creado un proceso persistente (el Worker).
 
-1.  Frontend (Vue): "¡Hola Gateway! Hay un cliente nuevo."
-2.  Gateway: "Recibido. Voy a avisar a todos. ¡Evento enviado a Redis!"
-3.  Worker Exterior: (Viendo Redis) "¡Un mensaje! Es para mí. Voy a crear un
-    presupuesto de ventanas en MI base de datos."
-4.  Worker Outdoor: (Viendo Redis) "¡El mismo mensaje! Yo también lo quiero. Voy
-    a agendar una visita al jardín en MI base de datos."
+    El Comando (RedisAuditSubscriberCommand.php):
 
-Esto es la verdadera escalabilidad. Si el servicio de ventanas es lento, no
-importa, el Gateway sigue libre para atender a más clientes.
+        Ejecuta Redis::subscribe(['santi_solutions_events'], callback).
 
-¿Te queda más claro ahora el papel del Worker y cómo se conecta a la DB? Si es
-así, podemos empezar a crear la lógica real para guardar ese Lead en el Gateway
-mediante Filament.
+        Este comando es bloqueante: significa que el proceso de PHP se queda "congelado" ahí, con el oído pegado a la conexión de Redis, esperando que llegue un bit de información.
+
+    El Callback (La reacción):
+
+        Cuando llega el JSON, PHP lo "despierta" y ejecuta la función que programamos.
+
+        El Auditor lee el campo event_name del JSON (su "DNI").
+
+        Como el Auditor es un "Gran Hermano", no filtra: todo lo que oye, lo guarda en la base de datos audit_db.
+
+4. ¿Por qué es un "Desacople Total"?
+
+Fíjate en esto:
+
+    El Gateway no sabe que existe una base de datos llamada audit_db.
+
+    El Gateway no sabe si el Auditor está encendido o apagado.
+
+    El Auditor no sabe qué tabla de PostgreSQL usó el Gateway para guardar el Lead.
+
+¿Qué pasa si mañana añadimos el Servicio de Ventanas?
+Simplemente creamos un nuevo comando santi:listen en el servicio de Ventanas que diga: "Si el evento es lead.captured Y el interés es windows, crea un presupuesto".
+¡Y el Gateway no tendrá que cambiar ni una sola línea de código!
+5. Resumen del Flujo de Datos
+
+    Acción: Usuario rellena Formulario Vue.
+
+    Input: POST /api/leads/capture -> LeadController.
+
+    Lógica: CapturedLeadHandler -> Leads::create() -> LeadRepository::save().
+
+    Emisión: RedisEventBus::publish() -> Redis (Canal: santi_solutions_events).
+
+    Captura: AuditWorker detecta el JSON en Redis.
+
+    Persistencia: AuditWorker guarda en audit_db.
+
+6. El papel de la carpeta Shared
+
+La carpeta Shared es la que define el "Diccionario" de la empresa.
+
+    El Gateway usa DomainEvent de Shared para fabricar el JSON.
+
+    El Auditor usa la lógica de Shared para entender ese JSON.
+
+    Sin Shared, cada servicio hablaría un idioma distinto y Redis sería una torre de Babel.
+
+¿Te ha quedado claro el papel de cada pieza? Es un sistema muy elegante porque es "Plug & Play": puedes conectar y desconectar servicios como si fueran piezas de LEGO.
