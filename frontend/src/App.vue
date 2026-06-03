@@ -1,6 +1,5 @@
 <script setup>
 import { ref } from 'vue'
-import LeadForm from './components/forms/LeadForm.vue'
 import Navbar from './components/layout/Navbar.vue'
 import Services from './components/sections/Services.vue'
 import Footer from './components/layout/Footer.vue'

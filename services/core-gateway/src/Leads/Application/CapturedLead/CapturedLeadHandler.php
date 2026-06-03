@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Santi\Leads\Application\CapturedLead;
 
-use JsonException;
 use Santi\Leads\Domain\Leads;
 use Santi\Leads\Domain\Repository\LeadRepositoryInterface;
 use Santi\Shared\Domain\Bus\Event\EventBus;

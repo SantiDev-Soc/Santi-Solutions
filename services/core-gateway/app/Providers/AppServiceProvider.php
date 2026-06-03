@@ -13,17 +13,14 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Register any application services.
      */
-    public function register(): void
-    {
-
-    }
+    public function register(): void {}
 
     /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
-
+      \Illuminate\Support\Facades\View::addNamespace('pages', resource_path('views/pages'));
     }
 
     /**
@@ -37,14 +34,15 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
-        Password::defaults(static fn (): ?Password => app()->isProduction()
-            ? Password::min(12)
+        Password::defaults(
+            static fn(): ?Password => app()->isProduction()
+                ? Password::min(12)
                 ->mixedCase()
                 ->letters()
                 ->numbers()
                 ->symbols()
                 ->uncompromised()
-            : null,
+                : null,
         );
     }
 }

@@ -1,7 +1,7 @@
 <?php
 declare (strict_types=1);
 
-namespace Santi\Audit\Application\Console\Commands;
+namespace App\Console\Commands;
 
 use App\Models\Record;
 use Illuminate\Console\Command;

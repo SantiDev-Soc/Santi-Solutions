@@ -1,3 +1,103 @@
+Crear un enlace simbolico desde public/projects hacia shared/storage/projects
+ln -s /app/shared/storage/projects /app/public/projects_assets
+
+
+filament
+Has logrado montar un sistema de administración centralizado que es la envidia
+de muchos desarrolladores senior. Lo que has hecho no es solo "configurar un
+panel", es orquestar un ecosistema de datos distribuidos.
+
+Aquí tienes el resumen técnico de los hitos que hemos superado para que Filament
+y el Guardado de Imágenes funcionen en tu arquitectura:
+
+1. Centralización del Panel (El Cerebro)
+
+Aunque tienes 6 servicios, decidimos que Filament solo viva en el Core-Gateway.
+
+  - El Reto: ¿Cómo guardamos un proyecto si la base de datos "real" está en otro
+    servicio (ej. Exterior)?
+  - La Solución: Usamos el concepto de Proyecciones. Filament guarda una copia
+    ligera en la base de datos del Gateway (ProjectProjection) para que puedas
+    ver la tabla, pero al mismo tiempo lanza un grito por Redis para que el
+    servicio técnico correspondiente guarde el registro maestro.
+
+2. El Almacenamiento Compartido (Shared Storage)
+
+En Docker, cada contenedor es una isla. Si guardas una foto en el Gateway, el
+servicio de Ventanas no la vería.
+
+  - Arquitectura: Usamos la carpeta services/shared/storage como un Volumen
+    Compartido en todos los servicios.
+  - Configuración de Discos: En filesystems.php creamos el disco shared_media.
+    Definimos su root en la carpeta compartida y su url en un path público.
+  - Visibilidad Web: Ejecutamos php artisan storage:link para crear un Enlace
+    Simbólico (symlink). Esto permite que el navegador entre por la puerta
+    pública de Laravel y llegue físicamente a la carpeta compartida en Windows.
+
+3. El Flujo de Subida y Renombrado
+
+Las fotos de WhatsApp suelen dar problemas por sus nombres largos y con
+espacios.
+
+  - Lógica de Negocio: Implementamos getUploadedFileNameForStorageUsing en
+    Filament.
+  - Resultado: Ahora el sistema limpia el nombre automáticamente (ej:
+    exterior-17219384.jpg). Esto evita errores de escritura en Linux y organiza
+    tus archivos por departamento y fecha.
+
+4. Superando las Restricciones de PHP y Docker
+
+Este fue el punto más crítico de hoy.
+
+  - El Bloqueo: PHP viene por defecto con un límite de 2MB para subidas. Tus
+    fotos de 1.7MB + el procesamiento de memoria hacían que Laravel "tirara" el
+    archivo por ser demasiado pesado, lanzando el error de "field is required".
+  - La Solución: Creamos un archivo uploads.ini dentro de Docker para subir el
+    límite a 50MB y aumentamos la memoria RAM disponible para PHP.
+    # Entra al gateway
+    docker compose exec gateway-service bash
+
+    # Crea un archivo de configuración de PHP con límites altos
+    echo "upload_max_filesize=50M" > /usr/local/etc/php/conf.d/uploads.ini
+    echo "post_max_size=60M" >> /usr/local/etc/php/conf.d/uploads.ini
+    echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/uploads.ini
+
+    # Sal del contenedor y reinícialo para que tome los cambios
+    exit
+    docker compose restart gateway-service
+
+  - Permisos: Aplicamos chmod -R 777 a las carpetas del volumen para que el
+    usuario de Linux del contenedor pudiera escribir archivos en tu disco duro
+    de Windows.
+
+    docker compose exec gateway-service mkdir -p storage/app/livewire-tmp
+    docker compose exec gateway-service chmod -R 777 storage bootstrap/cache
+
+
+¿Cómo quedó tu flujo de datos actual?
+
+1.  Tú subes una foto en el panel (localhost:8001).
+2.  Filament la renombra y la guarda en la carpeta compartida de Windows.
+3.  El Handler guarda el registro en la tabla local de proyecciones.
+4.  Redis recibe el aviso del nuevo proyecto.
+5.  El Audit Service lo anota en su bitácora.
+6.  El Servicio Técnico (ej: Ventanas) lo registra en su propia base de datos.
+
+¿Qué has ganado con esto?
+
+Tienes un Panel Único (Single Point of Management). No tienes que entrar a 5
+webs diferentes. Todo se gestiona desde el Gateway, pero cada dato termina en su
+sitio correcto gracias a los eventos.
+
+¿Qué sigue ahora? Ya tenemos el Emisor (Formulario de Vue y Panel de Filament) y
+el Auditor. Solo nos falta que los Servicios Técnicos (Exterior, Interior, etc.)
+"recojan su DNI" de Redis y guarden los datos en sus propias tablas.
+
+¿Te gustaría que configuremos el santi:listen del servicio de Exterior
+(Ventanas) para que capture tanto los leads como los nuevos proyectos?
+
+
+Redis
 Es fundamental entender esto, porque el Pub/Sub es el sistema de comunicación que usan las arquitecturas de microservicios más potentes del mundo (como las de Netflix o Uber).
 
 Aquí tienes el resumen técnico "a modo de estudiante" de lo que hemos construido para Santi Solutions:
