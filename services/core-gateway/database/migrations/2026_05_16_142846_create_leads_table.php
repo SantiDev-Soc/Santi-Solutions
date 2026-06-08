@@ -16,6 +16,10 @@ return new class extends Migration
             $table->char('id', 36)->primary();
             $table->string('name');
             $table->string('email');
+            $table->string('phone');
+            $table->string('zip_code');
+            $table->string('interest');
+            $table->string('status');
             $table->timestamps();
         });
     }

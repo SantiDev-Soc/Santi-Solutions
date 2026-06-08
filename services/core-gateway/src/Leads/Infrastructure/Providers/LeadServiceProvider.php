@@ -7,10 +7,10 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Santi\Leads\Domain\Repository\LeadRepositoryInterface;
 use Santi\Leads\Domain\Repository\ProjectProjectionRepositoryInterface;
-use Santi\Leads\Infrastructure\Bus\RedisEventBus;
 use Santi\Leads\Infrastructure\Persistence\LeadRepository;
 use Santi\Leads\Infrastructure\Persistence\ProjectProjectionRepository;
 use Santi\Shared\Domain\Bus\Event\EventBus;
+use Santi\Shared\Infastructure\Bus\Event\RedisEventBus;
 
 class LeadServiceProvider extends ServiceProvider
 {
@@ -28,7 +28,6 @@ class LeadServiceProvider extends ServiceProvider
         $this->loadRoutes();
         if ($this->app->runningInConsole()) {
             $this->commands([
-                \Santi\Leads\Application\Console\Commands\TestEventSystemCommand::class,
             ]);
         }
     }

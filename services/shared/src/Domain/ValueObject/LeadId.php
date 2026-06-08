@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 
-namespace Santi\Leads\Domain\ValueObjects;
+namespace Santi\Shared\Domain\ValueObject;
 
-use Santi\Shared\Domain\ValueObject\AggregateRootId;
 use Symfony\Component\Uid\Uuid;
 
 class LeadId extends AggregateRootId

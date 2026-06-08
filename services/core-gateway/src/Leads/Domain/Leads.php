@@ -5,7 +5,7 @@ namespace Santi\Leads\Domain;
 
 use Santi\Shared\Domain\Aggregate\AggregateRoot;
 use Santi\Leads\Domain\Events\LeadCapturedDomainEvent;
-use Santi\Leads\Domain\ValueObjects\LeadId;
+use Santi\Shared\Domain\ValueObject\LeadId;
 
 class Leads extends AggregateRoot
 {

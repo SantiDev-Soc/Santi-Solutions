@@ -2,12 +2,12 @@
 <module type="WEB_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/services/energy-efficiency" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/services/exterior-structural" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/services/interior-remodeling" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/services/outdoor-living" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/services/core-gateway/src" isTestSource="false" packagePrefix="Santi" />
       <sourceFolder url="file://$MODULE_DIR$/services/shared/src" isTestSource="false" packagePrefix="Santi\Shared" />
+      <sourceFolder url="file://$MODULE_DIR$/services/energy-efficiency/src" isTestSource="false" packagePrefix="Santi" />
+      <sourceFolder url="file://$MODULE_DIR$/services/exterior-structural/src" isTestSource="false" packagePrefix="Santi" />
+      <sourceFolder url="file://$MODULE_DIR$/services/interior-remodeling/src" isTestSource="false" packagePrefix="Santi" />
+      <sourceFolder url="file://$MODULE_DIR$/services/outdoor-living/src" isTestSource="false" packagePrefix="Santi" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

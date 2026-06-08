@@ -3,7 +3,7 @@ declare (strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\Record;
+use app\Models\Record;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Redis;
 

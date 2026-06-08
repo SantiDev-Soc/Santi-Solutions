@@ -124,7 +124,7 @@ services:
   exterior-worker:
     build: { context: ./services/exterior-structural, dockerfile: ../../Dockerfile }
     container_name: santi-exterior-worker
-    command: php artisan santi:listen
+    command: php artisan santi:exterior-listen
     environment: *exterior-env
     volumes: ['./services/exterior-structural:/app']
     depends_on: [db, redis]

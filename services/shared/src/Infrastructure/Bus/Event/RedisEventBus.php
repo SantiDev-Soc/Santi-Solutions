@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Santi\Leads\Infrastructure\Bus;
+namespace Santi\Shared\Infrastructure\Bus\Event;
 
 use Illuminate\Support\Facades\Redis;
 use JsonException;

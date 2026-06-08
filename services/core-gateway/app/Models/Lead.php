@@ -13,7 +13,7 @@ class Lead extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'name', 'email'];
+    protected $fillable = ['id', 'name','email', 'phone', 'zip_code', 'interest', 'status'];
 
     protected static function boot(): void
     {

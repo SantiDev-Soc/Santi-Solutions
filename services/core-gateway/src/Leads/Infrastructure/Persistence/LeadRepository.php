@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Santi\Leads\Infrastructure\Persistence;
 
-use App\Models\Lead;
+use app\Models\Lead;
 use Santi\Leads\Domain\Leads;
 use Santi\Leads\Domain\Repository\LeadRepositoryInterface;
 
