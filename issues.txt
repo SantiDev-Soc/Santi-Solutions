@@ -1,0 +1,74 @@
+Este error persiste porque Vite está intentando procesar el CSS pero no encuentra físicamente la carpeta del plugin dentro del contenedor, o bien el archivo package.json no se actualizó correctamente.
+
+Vamos a aplicar la "Solución Nuclear" para el Frontend. Esto limpiará cualquier rastro de instalaciones fallidas y forzará a Docker a construir un entorno limpio con Tailwind v4.
+1. Limpieza Total (Desde tu terminal de Windows)
+
+Primero, borraremos las carpetas que pueden estar causando conflictos de "memoria" en Docker y Windows:
+
+    Ve a tu carpeta E:/SANTI_SOLUTIONS/frontend.
+
+    Borra la carpeta node_modules (si existe).
+
+    Borra el archivo package-lock.json.
+
+2. Asegurar el package.json (Frontend)
+
+Abre frontend/package.json y asegúrate de que estas dependencias estén en la sección devDependencies:
+code JSON
+
+"devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0",
+    "vite": "^6.0.0",
+    "@vitejs/plugin-vue": "^5.0.0"
+}
+
+(Si no están, añádelas a mano y guarda el archivo).
+3. Reconstrucción Forzada del Contenedor
+
+Para que no haya errores de "puerto ocupado" o de archivos perdidos, vamos a reconstruir la imagen de Docker desde cero:
+code Bash
+
+# 1. Detén el contenedor
+docker compose stop frontend
+
+# 2. Borra la imagen vieja para que no use caché
+docker compose rm -f frontend
+
+# 3. Levanta y construye de nuevo (esto ejecutará el 'npm install' del Dockerfile)
+docker compose up -d --build frontend
+
+4. ¿Y si el error de "Cannot find module" sigue saliendo?
+
+Si después del paso anterior entras a la web y el error persiste, es que el volumen de Docker está ocultando las librerías instaladas. Haz esto dentro del contenedor:
+
+    Entra: docker compose exec frontend sh
+
+    Fuerza la instalación:
+    code Sh
+
+    npm install @tailwindcss/postcss tailwindcss --save-dev
+
+    Sal: exit
+
+    Reinicia: docker compose restart frontend
+
+5. Verificación del archivo postcss.config.js
+
+Asegúrate de que este archivo en tu Windows sea exactamente así (fíjate en las comillas y el nombre):
+code JavaScript
+
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {},
+    'autoprefixer': {},
+  },
+}
+
+¿Por qué está costando tanto?
+
+Tailwind v4 es extremadamente nuevo. El plugin @tailwindcss/postcss es el que hace de puente entre el nuevo motor de Tailwind y Vite. Si Vite no lo encuentra al milisegundo de arrancar, lanza ese error rojo.
+
+Haz el paso 3 (reconstrucción total). Es lo más efectivo porque el Dockerfile de Node se encargará de descargar todo en un entorno Linux puro sin interferencias de Windows.

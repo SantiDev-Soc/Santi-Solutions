@@ -1,5 +1,5 @@
 <?php
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace Santi\Exterior\Domain\Enum;
 
@@ -13,7 +13,6 @@ class ProjectExteriorStatusEnum extends BaseEnum
     public const COMPLETED = 'COMPLETED';
     public const REJECTED = 'REJECTED';
     public const CANCELLED = 'CANCELLED';
-    private static $fromValue;
 
     public static function fromValue(mixed $value): self
     {
@@ -29,6 +28,26 @@ class ProjectExteriorStatusEnum extends BaseEnum
     public static function pendingReview(): self
     {
         return self::fromValue(self::PENDING_REVIEW);
+    }
+
+    public static function created(): self
+    {
+        return self::fromValue(self::CREATED);
+    }
+
+    public static function completed(): self
+    {
+        return self::fromValue(self::COMPLETED);
+    }
+
+    public static function rejected(): self
+    {
+        return self::fromValue(self::REJECTED);
+    }
+
+    public static function cancelled(): self
+    {
+        return self::fromValue(self::CANCELLED);
     }
 
     public function equals(self $other): bool

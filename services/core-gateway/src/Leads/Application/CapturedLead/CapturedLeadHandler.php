@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Santi\Leads\Application\CapturedLead;
 
+use Santi\Leads\Domain\Enum\LeadStatusEnum;
 use Santi\Leads\Domain\Leads;
 use Santi\Leads\Domain\Repository\LeadRepositoryInterface;
 use Santi\Shared\Domain\Bus\Event\EventBus;
@@ -22,9 +23,15 @@ final readonly class CapturedLeadHandler
             $command->leadId,
             $command->name,
             $command->email,
+            $command->phone,
+            $command->zipCode,
+            $command->interest,
+            LeadStatusEnum::new(),
+            $command->budget_estimate
         );
 
         $this->leadRepository->save($lead);
         $this->eventBus->publish(...$lead->pullDomainEvents());
     }
 }
+

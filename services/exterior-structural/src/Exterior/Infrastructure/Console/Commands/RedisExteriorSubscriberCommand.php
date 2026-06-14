@@ -5,6 +5,7 @@ namespace Santi\Exterior\Infrastructure\Console\Commands;
 
 use App\Models\Project;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 
 class RedisExteriorSubscriberCommand extends Command
@@ -12,7 +13,7 @@ class RedisExteriorSubscriberCommand extends Command
     protected $signature = 'santi:exterior-listen';
     protected $description = 'Escucha el bus de eventos para procesos de ventanas';
 
-    public function handle():void
+    public function handle(): void
     {
         $this->info("Servicio de Ventanas (Exterior) escuchando...");
 
@@ -20,6 +21,10 @@ class RedisExteriorSubscriberCommand extends Command
         $redis->client()->setOption(\Redis::OPT_READ_TIMEOUT, -1);
 
         $redis->subscribe(['santi_solutions_events'], function (string $message) {
+
+            DB::purge('pgsql');
+            DB::reconnect('pgsql');
+
             $data = json_decode($message, true, 512, JSON_THROW_ON_ERROR);
             $eventName = $data['event_name'];
 
